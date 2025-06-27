@@ -46,7 +46,7 @@ async fn main() -> Result<()> {
     println!("{}", "  AUGMENTATION-ASSISTED TASK HANDLER [VER 0.0.1]".bold().cyan());
     println!("{}", "  SYSTEM STATUS:".bold().white());
     println!("{} {}", "  > AGENT CORTEX:".dimmed(), "ONLINE".green().bold());
-    println!();Add commentMore actions
+    println!();
 
     // Rephrased labels to sound more like in-game UI elements.
     // "Directive" instead of "Goal", and "Neural Link" for the LLM Provider.
