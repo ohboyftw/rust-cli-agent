@@ -78,36 +78,61 @@ A sophisticated command-line coding assistant built with Rust. This agent levera
 
 ## USAGE
 
-Run the agent from the command line, providing a high-level goal.
+After building, the agent runs in an interactive mode, prompting you for goals.
 
-### Basic Syntax
+### Running the Agent
+
+Navigate to the project root and run:
 
 ```bash
-cargo run -- "<your goal here>"
+cargo run --
 ```
 
-### Examples
+Or, if you've added the executable to your PATH (see below):
 
-**Using the default provider (OpenAI):**
 ```bash
-cargo run -- "Create a Rust function that calculates the factorial of a number and write it to a file named `factorial.rs`."
+cli_coding_agent
 ```
 
-**Switching to Google Gemini:**
-```bash
-cargo run -- --provider gemini "Implement a simple web server using the Axum framework that returns 'Hello, World!' at the root URL."
+Once running, you will be prompted to enter your goal:
+
+```
+Enter your goal (or 'quit' to exit): Create a Rust function that calculates the factorial of a number and write it to a file named `factorial.rs`.
 ```
 
-**Using a local model with Ollama:**
+### Using Different LLM Providers
+
+You can specify the LLM provider when starting the agent:
+
 ```bash
-# Make sure your Ollama server is running with a model like 'llama3'
-cargo run -- --provider ollama "Read the `Cargo.toml` file and explain its dependencies."
+cargo run -- --provider gemini
 ```
 
-**Using the Search Tool:**
+Or, if using the direct executable:
+
 ```bash
-cargo run -- "Search for the latest version of the `tokio` crate and create a new Rust project that uses it."
+cli_coding_agent --provider ollama
 ```
+
+### Making the Agent Globally Accessible (Optional)
+
+To run `cli_coding_agent` from any directory without specifying its full path, you can add its executable to your system's PATH or create a symbolic link.
+
+**For Windows:**
+
+1.  Open **Command Prompt as Administrator**.
+2.  Navigate to the project root: `cd rust-cli-coding-agent`
+3.  Run the provided script: `install_path_windows.bat`
+4.  **Important:** Restart your command prompt or PowerShell for changes to take effect.
+
+**For Linux/macOS:**
+
+1.  Open your terminal.
+2.  Navigate to the project root: `cd rust-cli-coding-agent`
+3.  Make the script executable: `chmod +x install_path_linux.sh`
+4.  Run the script with `sudo`: `sudo ./install_path_linux.sh`
+
+This will allow you to simply type `cli_coding_agent` in any directory to start the interactive agent.
 
 ---
 
