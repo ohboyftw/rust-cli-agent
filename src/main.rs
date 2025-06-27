@@ -49,7 +49,8 @@ async fn main() -> Result<()> {
     // Rephrased labels to sound more like in-game UI elements.
     // "Directive" instead of "Goal", and "Neural Link" for the LLM Provider.
     println!("{} {}", "//: PRIMARY DIRECTIVE:".yellow().bold(), cli.goal.white());
-    println!("{} {}", "//: NEURAL LINK VIA:".yellow().bold(), cli.provider.white());
+    // Display the provider as a string using Debug formatting
+    println!("{} {}", "//: NEURAL LINK VIA:".yellow().bold(), format!("{:?}", cli.provider).white());
     println!();
 
     // A matching footer to close the block.
