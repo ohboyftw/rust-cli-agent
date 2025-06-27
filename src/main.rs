@@ -38,13 +38,22 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
     info!("CLI arguments parsed successfully.");
 
-    println!("{}", "===================================".cyan());
-    println!("{}", "🤖 Rust CLI Coding Agent Initialized 🤖".bold().cyan());
-    println!("{}", "===================================".cyan());
-    println!("{} {}", "🎯 Goal:".bold().yellow(), cli.goal);
-    println!("{} {}", "🧠 Using LLM Provider:".bold().yellow(), cli.provider);
+
+    println!("{}", "//>––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––<\\\\".yellow().bold());
+    println!();
+    println!("{}", "  AUGMENTATION-ASSISTED TASK HANDLER [VER 0.0.1]".bold().cyan());
+    println!("{}", "  SYSTEM STATUS:".bold().white());
+    println!("{} {}", "  > AGENT CORTEX:".dimmed(), "ONLINE".green().bold());
     println!();
 
+    // Rephrased labels to sound more like in-game UI elements.
+    // "Directive" instead of "Goal", and "Neural Link" for the LLM Provider.
+    println!("{} {}", "//: PRIMARY DIRECTIVE:".yellow().bold(), cli.goal.white());
+    println!("{} {}", "//: NEURAL LINK VIA:".yellow().bold(), cli.provider.white());
+    println!();
+
+    // A matching footer to close the block.
+    println!("{}", "\\\\>––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––<//".yellow().bold());
 
     let config = Arc::new(AppConfig::load()?);
     info!("Configuration loaded.");
