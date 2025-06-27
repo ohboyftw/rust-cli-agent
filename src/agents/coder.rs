@@ -23,7 +23,7 @@ impl CoderAgent {
 
     fn build_prompt(&self, task_description: &str, context: &str) -> String {
         format!(r#"
-You are an expert Rust programmer. Your sole responsibility is to write clean, efficient, and correct Rust code.
+You are an expert programmer. Your sole responsibility is to write clean, efficient, and correct code.
 You will be given the overall context of the project and a specific task to complete.
 
 --- Context ---
@@ -32,7 +32,7 @@ You will be given the overall context of the project and a specific task to comp
 
 Your current task is: "{task_description}"
 
-Based on the context and the task, write the necessary Rust code.
+Based on the context and the task, write the necessary code. By default, you should write python code, but if the task requires a different language, use that language instead.
 IMPORTANT: Output ONLY the raw code. Do not include any explanations, comments about the code, or markdown code fences like ```rust.
 "#)
     }
