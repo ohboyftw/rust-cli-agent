@@ -57,7 +57,7 @@ impl GeminiClient {
 #[async_trait]
 impl LLMClient for GeminiClient {
     async fn generate(&self, prompt: &str) -> Result<String, AgentError> {
-        let url = format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key={}", self.api_key);
+        let url = format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-2.5-pro:generateContent?key={}", self.api_key);
         
         let request_payload = GeminiRequest {
             contents: vec![Content {
