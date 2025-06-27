@@ -41,11 +41,27 @@ async fn main() -> Result<()> {
     println!("{} {}", "🧠 Using LLM Provider:".bold().yellow(), cli.provider);
     println!();
 
+    println!("{}", "//>––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––<\\\\".yellow().bold());
+    println!();
+    println!("{}", "  AUGMENTATION-ASSISTED TASK HANDLER [VER 0.0.1]".bold().cyan());
+    println!("{}", "  SYSTEM STATUS:".bold().white());
+    println!("{} {}", "  > AGENT CORTEX:".dimmed(), "ONLINE".green().bold());
+    println!();Add commentMore actions
+
+    // Rephrased labels to sound more like in-game UI elements.
+    // "Directive" instead of "Goal", and "Neural Link" for the LLM Provider.
+    // Display the provider as a string using Debug formatting
+    println!("{} {}", "//: NEURAL LINK VIA:".yellow().bold(), format!("{:?}", cli.provider).white());
+    println!();
+
+
+
     let config = Arc::new(AppConfig::load()?);
     info!("Configuration loaded.");
 
     loop {
-        print!("{}", "Enter your goal (or 'quit' to exit): ".bold().green());
+        println!("{}", "//: PRIMARY DIRECTIVE:".yellow().bold());
+
         io::stdout().flush()?;
 
         let mut goal = String::new();
@@ -62,8 +78,12 @@ async fn main() -> Result<()> {
             continue;
         }
 
-        println!("
-{} {}", "🎯 Goal:".bold().yellow(), goal);
+        // Deus Ex Inspired: "Objective" and gold/blue color scheme
+        println!(
+            "{} {}",
+            "🗝️ OBJECTIVE:".bold().truecolor(212, 175, 55), // gold
+            goal.truecolor(51, 153, 255) // blue
+        );
         
         let llm_client = create_llm_client(cli.provider, config.clone())?;
         info!("LLM client created for provider: {}", cli.provider);
@@ -75,16 +95,13 @@ async fn main() -> Result<()> {
         info!("Orchestrator initialized.");
 
         match orchestrator.run().await {
-            Ok(_) => println!("
-{}", "✅ Task Completed Successfully!".bold().green()),
+            Ok(_) => println!("{}", "✅ Task Completed Successfully!".bold().green()),
             Err(e) => {
                 error!("Orchestrator failed: {:?}", e);
-                println!("
-{} {}", "❌ Task Failed:".bold().red(), e);
+                println!("{} {}", "❌ Task Failed:".bold().red(), e);
             }
         }
-        println!("
-{}", "===================================".cyan());
+        println!("{}", "===================================".cyan());
     }
 
     Ok(())
