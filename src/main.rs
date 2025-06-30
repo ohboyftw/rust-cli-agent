@@ -29,7 +29,11 @@ struct Cli {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    dotenv().ok();
+    let current_exe = std::env::current_exe()?;                                                                                             
+    let project_root = current_exe.parent().and_then(|p| p.parent()).and_then(|p| p.parent()).unwrap_or_else(|| std::path::Path::new("."));  
+    let dotenv_path = project_root.join(".env");                                                                                             
+    dotenvy::from_path(dotenv_path).ok();   
+
     env_logger::builder().filter_level(log::LevelFilter::Info).init();
 
     let cli = Cli::parse();

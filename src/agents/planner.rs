@@ -53,3 +53,145 @@ Output ONLY the numbered list of steps, with each step on a new line. Do not inc
             .collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use async_trait::async_trait;
+    use std::sync::Arc;
+
+    // Mock LLM client for testing
+    struct MockLLMClient {
+        response: String,
+    }
+
+    #[async_trait]
+    impl LLMClient for MockLLMClient {
+        async fn generate(&self, _prompt: &str) -> Result<String, AgentError> {
+            Ok(self.response.clone())
+        }
+    }
+
+    #[tokio::test]
+    async fn test_create_plan_success() {
+        let mock_response = "1. Read existing files\n2. Write new code\n3. Run tests";
+        let mock_client = Arc::new(MockLLMClient {
+            response: mock_response.to_string(),
+        });
+        
+        let planner = PlannerAgent::new(mock_client);
+        let result = planner.create_plan("Create a function", "No context").await;
+        
+        assert!(result.is_ok());
+        let plan = result.unwrap();
+        assert_eq!(plan.len(), 3);
+        assert_eq!(plan[0], "Read existing files");
+        assert_eq!(plan[1], "Write new code");
+        assert_eq!(plan[2], "Run tests");
+    }
+
+    #[test]
+    fn test_build_prompt() {
+        let mock_client = Arc::new(MockLLMClient {
+            response: "".to_string(),
+        });
+        let planner = PlannerAgent::new(mock_client);
+        
+        let prompt = planner.build_prompt("Test goal", "Test context");
+        
+        assert!(prompt.contains("Test goal"));
+        assert!(prompt.contains("Test context"));
+        assert!(prompt.contains("master planner AI"));
+        assert!(prompt.contains("numbered list"));
+    }
+
+    #[test]
+    fn test_parse_plan_numbered() {
+        let mock_client = Arc::new(MockLLMClient {
+            response: "".to_string(),
+        });
+        let planner = PlannerAgent::new(mock_client);
+        
+        let response = "1. First step\n2. Second step\n3. Third step";
+        let plan = planner.parse_plan(response);
+        
+        assert_eq!(plan.len(), 3);
+        assert_eq!(plan[0], "First step");
+        assert_eq!(plan[1], "Second step");
+        assert_eq!(plan[2], "Third step");
+    }
+
+    #[test]
+    fn test_parse_plan_unnumbered() {
+        let mock_client = Arc::new(MockLLMClient {
+            response: "".to_string(),
+        });
+        let planner = PlannerAgent::new(mock_client);
+        
+        let response = "First step\nSecond step\nThird step";
+        let plan = planner.parse_plan(response);
+        
+        assert_eq!(plan.len(), 3);
+        assert_eq!(plan[0], "First step");
+        assert_eq!(plan[1], "Second step");
+        assert_eq!(plan[2], "Third step");
+    }
+
+    #[test]
+    fn test_parse_plan_with_empty_lines() {
+        let mock_client = Arc::new(MockLLMClient {
+            response: "".to_string(),
+        });
+        let planner = PlannerAgent::new(mock_client);
+        
+        let response = "1. First step\n\n2. Second step\n   \n3. Third step\n";
+        let plan = planner.parse_plan(response);
+        
+        assert_eq!(plan.len(), 3);
+        assert_eq!(plan[0], "First step");
+        assert_eq!(plan[1], "Second step");
+        assert_eq!(plan[2], "Third step");
+    }
+
+    #[test]
+    fn test_parse_plan_mixed_format() {
+        let mock_client = Arc::new(MockLLMClient {
+            response: "".to_string(),
+        });
+        let planner = PlannerAgent::new(mock_client);
+        
+        let response = "1. First step\nSecond step without number\n3. Third step";
+        let plan = planner.parse_plan(response);
+        
+        assert_eq!(plan.len(), 3);
+        assert_eq!(plan[0], "First step");
+        assert_eq!(plan[1], "Second step without number");
+        assert_eq!(plan[2], "Third step");
+    }
+
+    #[test]
+    fn test_parse_plan_empty_response() {
+        let mock_client = Arc::new(MockLLMClient {
+            response: "".to_string(),
+        });
+        let planner = PlannerAgent::new(mock_client);
+        
+        let response = "";
+        let plan = planner.parse_plan(response);
+        
+        assert_eq!(plan.len(), 0);
+    }
+
+    #[test]
+    fn test_parse_plan_whitespace_only() {
+        let mock_client = Arc::new(MockLLMClient {
+            response: "".to_string(),
+        });
+        let planner = PlannerAgent::new(mock_client);
+        
+        let response = "   \n  \n\t\n  ";
+        let plan = planner.parse_plan(response);
+        
+        assert_eq!(plan.len(), 0);
+    }
+}

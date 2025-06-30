@@ -26,6 +26,7 @@ pub struct Decision {
     pub file_path: Option<String>,
 }
 
+#[derive(Debug)]
 pub enum ToolResult {
     Success(String),
 }
