@@ -1,6 +1,6 @@
 use cli_coding_agent::{
     error::AgentError,
-    llm::LLMClient,
+    llm::{LLMClient, AIResponse, ModelInfo},
     orchestrator::Orchestrator,
     state::AppState,
     tools::{Tool, Decision},
@@ -31,17 +31,36 @@ impl MockLLMClient {
 
 #[async_trait]
 impl LLMClient for MockLLMClient {
-    async fn generate(&self, _prompt: &str) -> Result<String, AgentError> {
+    async fn generate(&self, _prompt: &str) -> Result<AIResponse, AgentError> {
         let mut count = self.call_count.lock().unwrap();
         let responses = self.responses.lock().unwrap();
         
         if *count < responses.len() {
             let response = responses[*count].clone();
             *count += 1;
-            Ok(response)
+            Ok(AIResponse {
+                content: response,
+                input_tokens: 100,
+                output_tokens: 50,
+                cost: 0.001,
+                model: "mock-model".to_string(),
+                provider: "Mock".to_string(),
+            })
         } else {
             Err(AgentError::LLMError("No more mock responses".to_string()))
         }
+    }
+
+    async fn get_model_info(&self) -> ModelInfo {
+        ModelInfo {
+            name: "mock-model".to_string(),
+            input_cost_per_token: 0.00001,
+            output_cost_per_token: 0.00002,
+        }
+    }
+
+    fn calculate_cost(&self, input_tokens: u32, output_tokens: u32) -> f64 {
+        (input_tokens as f64 * 0.00001) + (output_tokens as f64 * 0.00002)
     }
 }
 

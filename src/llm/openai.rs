@@ -1,14 +1,14 @@
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
-use super::LLMClient;
+use super::{LLMClient, AIResponse, ModelInfo};
 use crate::error::AgentError;
 
 pub struct OpenAIClient {
     api_key: String,
     http_client: Client,
+    model: String,
 }
 
 #[derive(Serialize)]
@@ -33,6 +33,7 @@ struct ResponseFormat<'a> {
 #[derive(Deserialize)]
 struct OpenAIResponse {
     choices: Vec<Choice>,
+    usage: Usage,
 }
 
 #[derive(Deserialize)]
@@ -45,20 +46,28 @@ struct ResponseMessage {
     content: String,
 }
 
+#[derive(Deserialize)]
+struct Usage {
+    prompt_tokens: u32,
+    completion_tokens: u32,
+    total_tokens: u32,
+}
+
 impl OpenAIClient {
-    pub fn new(api_key: String) -> Self {
+    pub fn new(api_key: String, model: Option<String>) -> Self {
         Self {
             api_key,
             http_client: Client::new(),
+            model: model.unwrap_or_else(|| "gpt-4o".to_string()),
         }
     }
 }
 
 #[async_trait]
 impl LLMClient for OpenAIClient {
-    async fn generate(&self, prompt: &str) -> Result<String, AgentError> {
+    async fn generate(&self, prompt: &str) -> Result<AIResponse, AgentError> {
         let request_payload = OpenAIRequest {
-            model: "gpt-4o",
+            model: &self.model,
             messages: vec![Message { role: "user", content: prompt }],
             temperature: 0.2,
             response_format: None,
@@ -66,19 +75,34 @@ impl LLMClient for OpenAIClient {
         self.send_request(request_payload).await
     }
     
-    async fn generate_json(&self, prompt: &str) -> Result<String, AgentError> {
+    async fn generate_json(&self, prompt: &str) -> Result<AIResponse, AgentError> {
         let request_payload = OpenAIRequest {
-            model: "gpt-4o",
+            model: &self.model,
             messages: vec![Message { role: "user", content: prompt }],
             temperature: 0.0,
             response_format: Some(ResponseFormat { r#type: "json_object" }),
         };
         self.send_request(request_payload).await
     }
+
+    async fn get_model_info(&self) -> ModelInfo {
+        // These are example costs for gpt-4o. Real costs should be fetched or configured.
+        ModelInfo {
+            name: self.model.clone(),
+            input_cost_per_token: 0.000005, // Example: $5 per 1M tokens
+            output_cost_per_token: 0.000015, // Example: $15 per 1M tokens
+        }
+    }
+
+    fn calculate_cost(&self, input_tokens: u32, output_tokens: u32) -> f64 {
+        let model_info = futures::executor::block_on(self.get_model_info());
+        (input_tokens as f64 * model_info.input_cost_per_token) + 
+        (output_tokens as f64 * model_info.output_cost_per_token)
+    }
 }
 
 impl OpenAIClient {
-    async fn send_request(&self, payload: OpenAIRequest<'_>) -> Result<String, AgentError> {
+    async fn send_request(&self, payload: OpenAIRequest<'_>) -> Result<AIResponse, AgentError> {
         let response = self
             .http_client
             .post("https://api.openai.com/v1/chat/completions")
@@ -93,7 +117,20 @@ impl OpenAIClient {
         }
 
         let response_data: OpenAIResponse = response.json().await?;
-        response_data.choices.into_iter().next().map(|c| c.message.content)
-            .ok_or_else(|| AgentError::ResponseParseError("No content in OpenAI response".to_string()))
+        let content = response_data.choices.into_iter().next().map(|c| c.message.content)
+            .ok_or_else(|| AgentError::ResponseParseError("No content in OpenAI response".to_string()))?;
+
+        let input_tokens = response_data.usage.prompt_tokens;
+        let output_tokens = response_data.usage.completion_tokens;
+        let cost = self.calculate_cost(input_tokens, output_tokens);
+
+        Ok(AIResponse {
+            content,
+            input_tokens,
+            output_tokens,
+            cost,
+            model: self.model.clone(),
+            provider: "OpenAI".to_string(),
+        })
     }
 }

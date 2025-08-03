@@ -2,23 +2,26 @@ use std::sync::Arc;
 use anyhow::Result;
 use log::info;
 
-use crate::{error::AgentError, llm::LLMClient};
+use crate::{error::AgentError, llm::{LLMClient, AIResponse, ModelInfo}, cost_tracker::CostTracker};
+
 
 pub struct PlannerAgent {
     llm_client: Arc<dyn LLMClient>,
+    cost_tracker: Arc<CostTracker>,
 }
 
 impl PlannerAgent {
-    pub fn new(llm_client: Arc<dyn LLMClient>) -> Self {
-        Self { llm_client }
+    pub fn new(llm_client: Arc<dyn LLMClient>, cost_tracker: Arc<CostTracker>) -> Self {
+        Self { llm_client, cost_tracker }
     }
 
     pub async fn create_plan(&self, goal: &str, context: &str) -> Result<Vec<String>, AgentError> {
         let prompt = self.build_prompt(goal, context);
         info!("Planner prompt:\n{}", prompt);
         let response = self.llm_client.generate(&prompt).await?;
-        info!("Planner response:\n{}", response);
-        Ok(self.parse_plan(&response))
+        self.cost_tracker.add_cost(response.cost);
+        info!("Planner response:\n{}", response.content);
+        Ok(self.parse_plan(&response.content))
     }
 
     fn build_prompt(&self, goal: &str, context: &str) -> String {
@@ -63,12 +66,33 @@ mod tests {
     // Mock LLM client for testing
     struct MockLLMClient {
         response: String,
+        cost: f64,
     }
 
     #[async_trait]
     impl LLMClient for MockLLMClient {
-        async fn generate(&self, _prompt: &str) -> Result<String, AgentError> {
-            Ok(self.response.clone())
+        async fn generate(&self, _prompt: &str) -> Result<AIResponse, AgentError> {
+            Ok(AIResponse {
+                content: self.response.clone(),
+                input_tokens: 10,
+                output_tokens: 20,
+                cost: self.cost,
+                model: "mock-model".to_string(),
+                provider: "mock-provider".to_string(),
+            })
+        }
+        async fn generate_json(&self, _prompt: &str) -> Result<AIResponse, AgentError> {
+            self.generate(_prompt).await
+        }
+        async fn get_model_info(&self) -> ModelInfo {
+            ModelInfo {
+                name: "mock-model".to_string(),
+                input_cost_per_token: 0.0,
+                output_cost_per_token: 0.0,
+            }
+        }
+        fn calculate_cost(&self, _input_tokens: u32, _output_tokens: u32) -> f64 {
+            0.0
         }
     }
 
@@ -77,9 +101,11 @@ mod tests {
         let mock_response = "1. Read existing files\n2. Write new code\n3. Run tests";
         let mock_client = Arc::new(MockLLMClient {
             response: mock_response.to_string(),
+            cost: 0.001,
         });
+        let cost_tracker = Arc::new(CostTracker::new());
         
-        let planner = PlannerAgent::new(mock_client);
+        let planner = PlannerAgent::new(mock_client, cost_tracker.clone());
         let result = planner.create_plan("Create a function", "No context").await;
         
         assert!(result.is_ok());
@@ -88,14 +114,17 @@ mod tests {
         assert_eq!(plan[0], "Read existing files");
         assert_eq!(plan[1], "Write new code");
         assert_eq!(plan[2], "Run tests");
+        assert_eq!(cost_tracker.get_total_cost(), 0.001);
     }
 
     #[test]
     fn test_build_prompt() {
         let mock_client = Arc::new(MockLLMClient {
             response: "".to_string(),
+            cost: 0.0,
         });
-        let planner = PlannerAgent::new(mock_client);
+        let cost_tracker = Arc::new(CostTracker::new());
+        let planner = PlannerAgent::new(mock_client, cost_tracker);
         
         let prompt = planner.build_prompt("Test goal", "Test context");
         
@@ -109,8 +138,10 @@ mod tests {
     fn test_parse_plan_numbered() {
         let mock_client = Arc::new(MockLLMClient {
             response: "".to_string(),
+            cost: 0.0,
         });
-        let planner = PlannerAgent::new(mock_client);
+        let cost_tracker = Arc::new(CostTracker::new());
+        let planner = PlannerAgent::new(mock_client, cost_tracker);
         
         let response = "1. First step\n2. Second step\n3. Third step";
         let plan = planner.parse_plan(response);
@@ -125,8 +156,10 @@ mod tests {
     fn test_parse_plan_unnumbered() {
         let mock_client = Arc::new(MockLLMClient {
             response: "".to_string(),
+            cost: 0.0,
         });
-        let planner = PlannerAgent::new(mock_client);
+        let cost_tracker = Arc::new(CostTracker::new());
+        let planner = PlannerAgent::new(mock_client, cost_tracker);
         
         let response = "First step\nSecond step\nThird step";
         let plan = planner.parse_plan(response);
@@ -141,8 +174,10 @@ mod tests {
     fn test_parse_plan_with_empty_lines() {
         let mock_client = Arc::new(MockLLMClient {
             response: "".to_string(),
+            cost: 0.0,
         });
-        let planner = PlannerAgent::new(mock_client);
+        let cost_tracker = Arc::new(CostTracker::new());
+        let planner = PlannerAgent::new(mock_client, cost_tracker);
         
         let response = "1. First step\n\n2. Second step\n   \n3. Third step\n";
         let plan = planner.parse_plan(response);
@@ -157,8 +192,10 @@ mod tests {
     fn test_parse_plan_mixed_format() {
         let mock_client = Arc::new(MockLLMClient {
             response: "".to_string(),
+            cost: 0.0,
         });
-        let planner = PlannerAgent::new(mock_client);
+        let cost_tracker = Arc::new(CostTracker::new());
+        let planner = PlannerAgent::new(mock_client, cost_tracker);
         
         let response = "1. First step\nSecond step without number\n3. Third step";
         let plan = planner.parse_plan(response);
@@ -173,8 +210,10 @@ mod tests {
     fn test_parse_plan_empty_response() {
         let mock_client = Arc::new(MockLLMClient {
             response: "".to_string(),
+            cost: 0.0,
         });
-        let planner = PlannerAgent::new(mock_client);
+        let cost_tracker = Arc::new(CostTracker::new());
+        let planner = PlannerAgent::new(mock_client, cost_tracker);
         
         let response = "";
         let plan = planner.parse_plan(response);
@@ -186,8 +225,10 @@ mod tests {
     fn test_parse_plan_whitespace_only() {
         let mock_client = Arc::new(MockLLMClient {
             response: "".to_string(),
+            cost: 0.0,
         });
-        let planner = PlannerAgent::new(mock_client);
+        let cost_tracker = Arc::new(CostTracker::new());
+        let planner = PlannerAgent::new(mock_client, cost_tracker);
         
         let response = "   \n  \n\t\n  ";
         let plan = planner.parse_plan(response);

@@ -4,7 +4,6 @@ use log::info;
 use walkdir::WalkDir;
 use crate::config::AppConfig;
 use crate::error::AgentError;
-use std::env;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "tool_name", content = "parameters")]

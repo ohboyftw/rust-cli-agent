@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
-use super::LLMClient;
+use super::{LLMClient, AIResponse, ModelInfo};
 use crate::error::AgentError;
 
 pub struct OllamaClient {
@@ -21,6 +21,8 @@ struct OllamaRequest<'a> {
 #[derive(Deserialize)]
 struct OllamaResponse {
     response: String,
+    prompt_eval_count: Option<u32>,
+    eval_count: Option<u32>,
 }
 
 impl OllamaClient {
@@ -35,7 +37,7 @@ impl OllamaClient {
 
 #[async_trait]
 impl LLMClient for OllamaClient {
-    async fn generate(&self, prompt: &str) -> Result<String, AgentError> {
+    async fn generate(&self, prompt: &str) -> Result<AIResponse, AgentError> {
         let url = format!("{}/api/generate", self.base_url);
         
         let request_payload = OllamaRequest {
@@ -58,6 +60,37 @@ impl LLMClient for OllamaClient {
 
         let response_data: OllamaResponse = response.json().await?;
 
-        Ok(response_data.response)
+        let input_tokens = response_data.prompt_eval_count.unwrap_or(0);
+        let output_tokens = response_data.eval_count.unwrap_or(0);
+        let cost = self.calculate_cost(input_tokens, output_tokens);
+
+        Ok(AIResponse {
+            content: response_data.response,
+            input_tokens,
+            output_tokens,
+            cost,
+            model: self.model.clone(),
+            provider: "Ollama".to_string(),
+        })
+    }
+
+    async fn generate_json(&self, prompt: &str) -> Result<AIResponse, AgentError> {
+        // Ollama does not have a direct JSON mode. We'll just call generate.
+        self.generate(prompt).await
+    }
+
+    async fn get_model_info(&self) -> ModelInfo {
+        // Ollama models are typically free or self-hosted, so cost is 0.
+        ModelInfo {
+            name: self.model.clone(),
+            input_cost_per_token: 0.0,
+            output_cost_per_token: 0.0,
+        }
+    }
+
+    fn calculate_cost(&self, input_tokens: u32, output_tokens: u32) -> f64 {
+        let model_info = futures::executor::block_on(self.get_model_info());
+        (input_tokens as f64 * model_info.input_cost_per_token) +
+        (output_tokens as f64 * model_info.output_cost_per_token)
     }
 }

@@ -1,13 +1,14 @@
 use anyhow::Result;
 use clap::Parser;
 use colored::*;
-use dotenvy::dotenv;
+
 use log::{info, error};
 use std::io::{self, Write};
 use std::sync::Arc;
 
 mod agents;
 mod config;
+mod cost_tracker;
 mod error;
 mod llm;
 mod orchestrator;
@@ -17,6 +18,7 @@ mod tools;
 use config::AppConfig;
 use llm::{create_llm_client, LLMProvider};
 use orchestrator::Orchestrator;
+use crate::cost_tracker::CostTracker;
 
 /// A CLI Coding Agent powered by Large Language Models
 #[derive(Parser, Debug)]
@@ -95,8 +97,15 @@ async fn main() -> Result<()> {
         let reasoning_client = create_llm_client(LLMProvider::OpenAI, config.clone())?;
         info!("Reasoning client (OpenAI GPT-4o) created for planning and tool decisions.");
 
-        let mut orchestrator = Orchestrator::new(goal.to_string(), llm_client, reasoning_client);
+        // Display cost information (Phase 1.2)
+        println!("{} {}{}", "💰 Current Session Cost:".bold().green(), "$".bold().green(), 0.00); // Placeholder for now
+
+        let cost_tracker = Arc::new(CostTracker::new());
+        let mut orchestrator = Orchestrator::new(goal.to_string(), llm_client, reasoning_client, cost_tracker.clone());
         info!("Orchestrator initialized.");
+
+        // Display cost information (Phase 1.2)
+        println!("{} {}{:.4}", "💰 Current Session Cost:".bold().green(), "$".bold().green(), cost_tracker.get_total_cost());
 
         match orchestrator.run().await {
             Ok(_) => println!("{}", "✅ Task Completed Successfully!".bold().green()),

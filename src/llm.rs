@@ -11,12 +11,30 @@ mod gemini;
 mod openai;
 mod ollama;
 
+#[derive(Debug, Clone)]
+pub struct AIResponse {
+    pub content: String,
+    pub input_tokens: u32,
+    pub output_tokens: u32,
+    pub cost: f64,
+    pub model: String,
+    pub provider: String,
+}
+
+pub struct ModelInfo {
+    pub name: String,
+    pub input_cost_per_token: f64,
+    pub output_cost_per_token: f64,
+}
+
 #[async_trait]
 pub trait LLMClient: Send + Sync {
-    async fn generate(&self, prompt: &str) -> Result<String, AgentError>;
-    async fn generate_json(&self, prompt: &str) -> Result<String, AgentError> {
+    async fn generate(&self, prompt: &str) -> Result<AIResponse, AgentError>;
+    async fn generate_json(&self, prompt: &str) -> Result<AIResponse, AgentError> {
         self.generate(prompt).await
     }
+    async fn get_model_info(&self) -> ModelInfo;
+    fn calculate_cost(&self, input_tokens: u32, output_tokens: u32) -> f64;
 }
 
 #[derive(ValueEnum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -47,19 +65,19 @@ pub fn create_llm_client(
     match provider {
         LLMProvider::OpenAI => {
             let api_key = config.openai_api_key.clone().ok_or_else(|| AgentError::ApiKeyMissing("OpenAI".to_string()))?;
-            Ok(Arc::new(openai::OpenAIClient::new(api_key)))
+            Ok(Arc::new(openai::OpenAIClient::new(api_key, config.openai_model.clone())))
         }
         LLMProvider::Gemini => {
             let api_key = config.google_api_key.clone().ok_or_else(|| AgentError::ApiKeyMissing("Google Gemini".to_string()))?;
-            Ok(Arc::new(gemini::GeminiClient::new(api_key)))
+            Ok(Arc::new(gemini::GeminiClient::new(api_key, config.google_model.clone())))
         }
         LLMProvider::Claude => {
             let api_key = config.anthropic_api_key.clone().ok_or_else(|| AgentError::ApiKeyMissing("Anthropic Claude".to_string()))?;
-            Ok(Arc::new(claude::ClaudeClient::new(api_key)))
+            Ok(Arc::new(claude::ClaudeClient::new(api_key, config.anthropic_model.clone())))
         }
         LLMProvider::DeepSeek => {
             let api_key = config.deepseek_api_key.clone().ok_or_else(|| AgentError::ApiKeyMissing("DeepSeek".to_string()))?;
-            Ok(Arc::new(deepseek::DeepSeekClient::new(api_key)))
+            Ok(Arc::new(deepseek::DeepSeekClient::new(api_key, config.deepseek_model.clone())))
         }
         LLMProvider::Ollama => {
             Ok(Arc::new(ollama::OllamaClient::new(&config.ollama_base_url, &config.ollama_model)))
